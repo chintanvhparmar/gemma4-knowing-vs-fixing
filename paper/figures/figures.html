@@ -1,0 +1,66 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Figures</title>
+<style>
+.viz-root{--surface-1:#fcfcfb;--text-primary:#0b0b0b;--text-secondary:#52514e;--grid:#e4e3df;
+  --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;
+  background:var(--surface-1);font-family:"Segoe UI",Arial,sans-serif;color:var(--text-primary);margin:0}
+body{margin:0;background:#fcfcfb}
+.fig{width:1000px;padding:24px 28px 18px;box-sizing:border-box;background:var(--surface-1)}
+h2{font-size:20px;margin:0 0 4px;font-weight:600}
+p.sub{font-size:14px;color:var(--text-secondary);margin:0 0 10px}
+.legend{display:flex;gap:18px;font-size:13px;color:var(--text-secondary);margin:4px 0 6px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.note{font-size:12px;color:var(--text-secondary);margin-top:4px}
+svg text{font-family:"Segoe UI",Arial,sans-serif}
+</style></head>
+<body class="viz-root">
+<div class="fig" id="fig1">
+  <h2>Fig. 1 — Without a written specification, success drops to ~40%, and tools don't change it</h2>
+  <p class="sub">Resolved runs per task group and condition (2 runs per task; labels = resolved / runs)</p>
+  <div class="legend" id="leg1"></div>
+  <svg id="svg1" width="944" height="380"></svg>
+  <div class="note">L1 = example in the issue (16 tasks) · L2 = spec only in README/docstring (3) · L3 = no spec anywhere (4) · Control = ordinary dev-set bugs (10). Gemma 4 31B, official harness, 330 runs.</div>
+</div>
+<div class="fig" id="fig2">
+  <h2>Fig. 2 — The agent almost never uses the look-up tools it is given</h2>
+  <p class="sub">Runs with at least one web-search or docs call, out of runs where the tool was available (all 33 tasks)</p>
+  <svg id="svg2" width="944" height="300"></svg>
+  <div class="note">All 5 look-ups came before the first edit; 4 were on L3 tasks. The staleness hint (C2) produced none. In 15 of 18 unresolved L3 runs with a tool available, the agent's own reasoning called the behaviour "weird"/"strange" (keyword match) and it still did not look it up.</div>
+</div>
+<script>
+const NS="http://www.w3.org/2000/svg";
+function el(p,t,a,txt){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(txt!==undefined)e.textContent=txt;p.appendChild(e);return e}
+const css=v=>getComputedStyle(document.body).getPropertyValue(v).trim();
+const conds=[["C0","no tools"],["C1","web search"],["C2","web + hint"],["C3","offline docs"],["C4","both"]];
+const cols=["--s1","--s2","--s3","--s4","--s5"].map(css);
+const data={"L1":[[31,32],[32,32],[32,32],[32,32],[31,32]],"L2":[[6,6],[6,6],[6,6],[6,6],[6,6]],
+            "L3":[[3,8],[3,8],[4,8],[4,8],[3,8]],"Control":[[12,20],[12,20],[10,20],[12,20],[11,20]]};
+const leg=document.getElementById("leg1");
+conds.forEach((c,i)=>{leg.innerHTML+=`<span><i style="background:${cols[i]}"></i>${c[0]} ${c[1]}</span>`});
+// Fig 1
+(function(){const s=document.getElementById("svg1"),W=944,H=380,L=48,R=8,T=14,B=40,ph=H-T-B,pw=W-L-R;
+ const y=v=>T+ph*(1-v);
+ [0,.25,.5,.75,1].forEach(v=>{el(s,"line",{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:css("--grid"),"stroke-width":1});
+   el(s,"text",{x:L-8,y:y(v)+4,"text-anchor":"end","font-size":12,fill:css("--text-secondary")},(v*100)+"%")});
+ const groups=Object.keys(data),gw=pw/groups.length,bw=30,gap=2;
+ groups.forEach((g,gi)=>{const x0=L+gi*gw+(gw-(bw*5+gap*4))/2;
+   data[g].forEach(([r,n],i)=>{const v=r/n,x=x0+i*(bw+gap),yy=y(v),h=y(0)-yy;
+     el(s,"path",{d:`M${x},${y(0)} V${yy+4} Q${x},${yy} ${x+4},${yy} H${x+bw-4} Q${x+bw},${yy} ${x+bw},${yy+4} V${y(0)} Z`,fill:cols[i]});
+     el(s,"text",{x:x+bw/2,y:yy-6,"text-anchor":"middle","font-size":11,fill:css("--text-primary")},`${r}/${n}`);});
+   el(s,"text",{x:L+gi*gw+gw/2,y:H-14,"text-anchor":"middle","font-size":14,"font-weight":600,fill:css("--text-primary")},g);});
+ el(s,"line",{x1:L,x2:W-R,y1:y(0),y2:y(0),stroke:css("--text-secondary"),"stroke-width":1});})();
+// Fig 2 (single series: one hue, horizontal bars)
+(function(){const s=document.getElementById("svg2"),W=944,L=220,R=90,T=20,rowH=56,bh=26;
+ const rows=[["C1 web search",1,66],["C2 web search + staleness hint",0,66],["C3 offline library docs",0,66],["C4 both tools",4,66]];
+ const max=0.10,x=v=>L+(W-L-R)*v/max;
+ [0,.025,.05,.075,.10].forEach(v=>{el(s,"line",{x1:x(v),x2:x(v),y1:T-6,y2:T+rows.length*rowH,stroke:css("--grid")});
+   el(s,"text",{x:x(v),y:T+rows.length*rowH+18,"text-anchor":"middle","font-size":12,fill:css("--text-secondary")},(v*100).toFixed(1).replace(".0","")+"%")});
+ rows.forEach(([lab,k,n],i)=>{const yy=T+i*rowH+(rowH-bh)/2,v=k/n,w=Math.max(x(v)-L,0);
+   el(s,"text",{x:L-12,y:yy+bh/2+5,"text-anchor":"end","font-size":14,fill:css("--text-primary")},lab);
+   if(w>0)el(s,"path",{d:`M${L},${yy} H${L+w-4} Q${L+w},${yy} ${L+w},${yy+4} V${yy+bh-4} Q${L+w},${yy+bh} ${L+w-4},${yy+bh} H${L} Z`,fill:cols[0]});
+   el(s,"text",{x:L+w+8,y:yy+bh/2+5,"font-size":13,fill:css("--text-primary")},`${k}/${n} (${(100*v).toFixed(1)}%)`);});
+ el(s,"line",{x1:L,x2:L,y1:T-6,y2:T+rows.length*rowH,stroke:css("--text-secondary")});
+ el(s,"text",{x:x(.05),y:T+rows.length*rowH+40,"text-anchor":"middle","font-size":12,fill:css("--text-secondary")},"share of tool-enabled runs (axis ends at 10%)");})();
+</script>
+</body></html>

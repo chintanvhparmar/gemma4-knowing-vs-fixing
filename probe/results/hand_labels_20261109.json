@@ -1,0 +1,31 @@
+{
+  "source_runs": ["probe_20261108_1953_nothink.jsonl", "probe_20261108_1954_think.jsonl"],
+  "model": "google/gemma-4-31B-it-qat-w4a16-ct, vLLM 0.33.0, Modal L40S, temperature 0",
+  "question": "Would the model's default code/answer break (or be wrong) on the post-cutoff library version?",
+  "labels": "OLD = uses the removed/changed behaviour (breaks on new version); OK = works on both versions or matches new behaviour; WRONG = broken in every version (hallucinated API); NA = answer avoids the API, so no evidence",
+  "hand_labelled_by": "Claude, read every answer on 9 Nov 2026; regex labels disagreed in 9 of 40 answers",
+  "probes": {
+    "marshmallow_validates_data_key": {"nothink": "OLD", "think": "OLD", "use": "strong", "why": "def validate_age(self, value): no data_key kwarg"},
+    "polars_streaming_engine": {"nothink": "OLD", "think": "OLD", "use": "strong", "why": "collect(streaming=True)"},
+    "click_command_suffix": {"nothink": "OLD", "think": "OLD", "use": "strong", "why": "answers init-cmd / init_cmd; 8.2 strips the _cmd suffix -> 'init'"},
+    "sklearn_adaboost_algorithm": {"nothink": "OLD", "think": "OLD", "use": "strong", "why": "AdaBoostClassifier(algorithm='SAMME', ...)"},
+    "django_checkconstraint_condition": {"nothink": "OLD", "think": "OLD", "use": "strong", "why": "CheckConstraint(check=Q(...))"},
+    "pandas_datetime_unit_us": {"nothink": "OLD", "think": "WRONG", "use": "mode-dependent", "why": "nothink: astype('int64') // 10**9 (1000x off with [us]); think: s.dt.timestamp() does not exist in pandas 2.2.3 or 3.0.0 (checked source)"},
+    "pandas_zoneinfo_default": {"nothink": "OLD", "think": "OK", "use": "mode-dependent", "why": "nothink: ts.tz.zone (pytz-only); think: str(ts.tz)"},
+    "starlette_lifespan": {"nothink": "OLD", "think": "OK", "use": "mode-dependent", "why": "nothink: on_startup/on_shutdown (removed in 1.0); think: lifespan context manager"},
+    "marshmallow_pass_collection": {"nothink": "NA", "think": "NA", "use": "weak", "why": "avoids pass_many entirely (wrapper schema); never mentions pass_collection"},
+    "numpy_eig_complex": {"nothink": "OK", "think": "OLD", "use": "weak (inconsistent)", "why": "nothink says complex128, think says float64"},
+    "polars_explode_empty": {"nothink": "OLD", "think": "OK", "use": "weak (inconsistent)", "why": "nothink: empty -> null (old default); think: dropped"},
+    "sqlalchemy_filter_by_join": {"nothink": "OK", "think": "OK", "use": "exclude as probe evidence", "why": "both use joinedload (no JOIN in FROM), so filter_by(id=5) would not be ambiguous; regex OLD for think was a false positive"},
+    "polars_cast_str_to_date": {"nothink": "OK", "think": "OK", "use": "exclude", "why": "str.to_date() already worked before 2.0"},
+    "pandas_value_counts_sort_false": {"nothink": "OK", "think": "OK", "use": "exclude", "why": "model already believes first-appearance order (= the new behaviour)"},
+    "click_cli_runner_mix_stderr": {"nothink": "OK", "think": "WRONG", "use": "exclude", "why": "nothink uses result.stderr without mix_stderr (works on 8.2); think invents context_settings file_stdout"},
+    "scipy_sqrtm_disp": {"nothink": "OK", "think": "OK", "use": "exclude", "why": "never uses disp=; computes the residual manually"},
+    "scipy_rankdata_dtype": {"nothink": "OK", "think": "OK", "use": "exclude", "why": "answers float64 (= the new behaviour)"},
+    "scipy_sph_harm": {"nothink": "WRONG", "think": "WRONG", "use": "exclude", "why": "hallucinated functions sphsph / spherical_harm"},
+    "fastapi_strict_content_type": {"nothink": "OK", "think": "OK", "use": "exclude", "why": "manual request.body() parsing works on every version"},
+    "langchain_llmchain": {"nothink": "OK", "think": "OK", "use": "exclude", "why": "LCEL prompt | model, works on 1.0"}
+  },
+  "summary": {"strong": 5, "mode_dependent": 3, "weak": 3, "exclude": 9},
+  "horizon_answers_note": "Latest-version answers fit a late-2024 horizon (e.g. fastapi 0.115.6, numpy 2.1.3, sqlalchemy 2.0.36, django 5.1.2); polars inconsistent (1.19.0 nothink vs 1.7.0 think)."
+}

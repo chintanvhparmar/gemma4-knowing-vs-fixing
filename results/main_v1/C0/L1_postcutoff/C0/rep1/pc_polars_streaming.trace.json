@@ -1,0 +1,547 @@
+{
+ "schema_version": "ATIF-v1.7",
+ "agent": {
+  "name": "adk-eval-core",
+  "version": "1.0"
+ },
+ "steps": [
+  {
+   "step_id": 1,
+   "source": "system",
+   "message": "[omitted: official competition sample-agent prompt (rule 2.4.b); our additions are in harness/build_conditions.py]",
+   "extra": {
+    "event_type": "system_instruction",
+    "elapsed_s": 0.19282984733581543,
+    "timestamp": 1794288710.6844742,
+    "author": "harness"
+   }
+  },
+  {
+   "step_id": 2,
+   "source": "user",
+   "message": "Problem Statement:\ntotal_by_region() fails after upgrading polars\n\nAfter upgrading our dependencies, `reports.summary.total_by_region()` raises an error for any\nLazyFrame instead of returning the per-region totals. The report must still be computed with\nthe streaming engine because production inputs are large.\n\nExpected: a DataFrame with columns `region` and `total`, sorted by region.\n\n[official task-message template omitted]",
+   "extra": {
+    "event_type": "task_prompt",
+    "elapsed_s": 0.19283747673034668,
+    "timestamp": 1794288710.6844819,
+    "author": "harness"
+   }
+  },
+  {
+   "step_id": 3,
+   "source": "agent",
+   "message": "The user is reporting a failure in `reports.summary.total_by_region()` after upgrading polars.\nIt fails for `LazyFrame` and should return a DataFrame with columns `region` and `total`, sorted by region.\nIt must be computed with the streaming engine.\n\nLet's start by examining `reports/summary.py`.",
+   "model_name": "/tmp/model_kaggle_v2",
+   "tool_calls": [
+    {
+     "tool_call_id": "call_3",
+     "function_name": "read_file",
+     "arguments": {
+      "filepath": "reports/summary.py"
+     },
+     "extra": {
+      "elapsed_s": 6.937773704528809,
+      "timestamp": 1794288717.429418,
+      "author": "swe_baseline_agent",
+      "model_version": "/tmp/model_kaggle_v2"
+     }
+    }
+   ],
+   "observation": {
+    "content": "{\"status\": \"ok\", \"filepath\": \"reports/summary.py\", \"content\": \"import polars as pl\\n\\n\\ndef total_by_region(lf: pl.LazyFrame) -> pl.DataFrame:\\n    \\\"\\\"\\\"Total `amount` per `region`, sorted by region. Uses the streaming engine (large inputs).\\\"\\\"\\\"\\n    return (\\n        lf.group_by(\\\"region\\\")\\n        .agg(pl.col(\\\"amount\\\").sum().alias(\\\"total\\\"))\\n        .sort(\\\"region\\\")\\n        .collect(streaming=True)\\n    )\", \"start_line\": 1, \"end_line\": 11, \"total_lines\": 11, \"is_truncated\": false}",
+    "extra": {
+     "tool_name": "read_file",
+     "elapsed_s": 6.9419310092926025,
+     "timestamp": 1794288717.4335754,
+     "author": "swe_baseline_agent"
+    }
+   },
+   "metrics": {
+    "prompt_tokens": 2191,
+    "completion_tokens": 96,
+    "cached_tokens": 0,
+    "total_tokens": 2287
+   },
+   "llm_call_count": 1,
+   "extra": {
+    "event_type": "thinking",
+    "elapsed_s": 6.937773704528809,
+    "timestamp": 1794288717.429418,
+    "author": "swe_baseline_agent"
+   }
+  },
+  {
+   "step_id": 4,
+   "source": "agent",
+   "message": "The code looks straightforward:\n```python\ndef total_by_region(lf: pl.LazyFrame) -> pl.DataFrame:\n    \"\"\"Total `amount` per `region`, sorted by region. Uses the streaming engine (large inputs).\"\"\"\n    return (\n        lf.group_by(\"region\")\n        .agg(pl.col(\"amount\").sum().alias(\"total\"))\n        .sort(\"region\")\n        .collect(streaming=True)\n    )\n```\n\nThe problem statement says it fails after upgrading polars.\nI should try to reproduce this. I'll create a reproduction script.",
+   "model_name": "/tmp/model_kaggle_v2",
+   "tool_calls": [
+    {
+     "tool_call_id": "call_6",
+     "function_name": "run_command",
+     "arguments": {
+      "command": "cat > /tmp/repro.py <<'EOF'\nimport polars as pl\nfrom reports.summary import total_by_region\n\n# Create a LazyFrame\ndf = pl.DataFrame({\n    \"region\": [\"North\", \"North\", \"South\", \"South\", \"East\", \"West\"],\n    \"amount\": [10, 20, 30, 40, 50, 60]\n}).lazy()\n\ntry:\n    result = total_by_region(df)\n    print(\"Result:\\n\", result)\nexcept Exception as e:\n    print(\"Error:\", e)\nEOF\npython3 /tmp/repro.py\n"
+     },
+     "extra": {
+      "elapsed_s": 17.314934015274048,
+      "timestamp": 1794288727.8065784,
+      "author": "swe_baseline_agent",
+      "model_version": "/tmp/model_kaggle_v2"
+     }
+    }
+   ],
+   "observation": {
+    "content": "{\"status\": \"ok\", \"stdout\": \"Error: the argument 'streaming' for 'LazyFrame.collect' was deprecated in version 1.25.0 and has been removed in version 2.0. Use `engine=\\\"streaming\\\"` instead.\\n\", \"stderr\": \"\", \"exit_code\": 0}",
+    "extra": {
+     "tool_name": "run_command",
+     "elapsed_s": 17.579952716827393,
+     "timestamp": 1794288728.071597,
+     "author": "swe_baseline_agent"
+    }
+   },
+   "metrics": {
+    "prompt_tokens": 2469,
+    "completion_tokens": 302,
+    "cached_tokens": 0,
+    "total_tokens": 2771
+   },
+   "llm_call_count": 1,
+   "extra": {
+    "event_type": "thinking",
+    "elapsed_s": 17.314934015274048,
+    "timestamp": 1794288727.8065784,
+    "author": "swe_baseline_agent"
+   }
+  },
+  {
+   "step_id": 5,
+   "source": "agent",
+   "message": "The error message is very clear:\n`Error: the argument 'streaming' for 'LazyFrame.collect' was deprecated in version 1.25.0 and has been removed in version 2.0. Use engine=\"streaming\" instead.`\n\nSo I need to change `.collect(streaming=True)` to `.collect(engine=\"streaming\")`.\n\nLet's verify this fix.",
+   "model_name": "/tmp/model_kaggle_v2",
+   "tool_calls": [
+    {
+     "tool_call_id": "call_9",
+     "function_name": "edit_file",
+     "arguments": {
+      "filepath": "reports/summary.py",
+      "new_string": "        .sort(\\\"region\\\")\\n        .collect(engine=\\\"streaming\\\")\\n    )`,old_string:"
+     },
+     "extra": {
+      "elapsed_s": 23.10430383682251,
+      "timestamp": 1794288733.5959482,
+      "author": "swe_baseline_agent",
+      "model_version": "/tmp/model_kaggle_v2"
+     }
+    }
+   ],
+   "observation": {
+    "content": "{\"error\": \"Invoking `edit_file()` failed as the following mandatory input parameters are not present:\\nold_string\\nYou could retry calling this tool, but it is IMPORTANT for you to provide all the mandatory parameters.\"}",
+    "extra": {
+     "tool_name": "edit_file",
+     "elapsed_s": 23.106531858444214,
+     "timestamp": 1794288733.5981762,
+     "author": "swe_baseline_agent"
+    }
+   },
+   "metrics": {
+    "prompt_tokens": 2852,
+    "completion_tokens": 159,
+    "cached_tokens": 0,
+    "total_tokens": 3011
+   },
+   "llm_call_count": 1,
+   "extra": {
+    "event_type": "thinking",
+    "elapsed_s": 23.10430383682251,
+    "timestamp": 1794288733.5959482,
+    "author": "swe_baseline_agent"
+   }
+  },
+  {
+   "step_id": 6,
+   "source": "agent",
+   "message": "I made a mistake in the `edit_file` call. I didn't provide the `old_string` correctly.",
+   "model_name": "/tmp/model_kaggle_v2",
+   "tool_calls": [
+    {
+     "tool_call_id": "call_12",
+     "function_name": "edit_file",
+     "arguments": {
+      "filepath": "reports/summary.py",
+      "new_string": "        .sort(\"region\")\\n        .collect(engine=\"streaming\")\\n    )`,old_string:"
+     },
+     "extra": {
+      "elapsed_s": 26.75594735145569,
+      "timestamp": 1794288737.2475917,
+      "author": "swe_baseline_agent",
+      "model_version": "/tmp/model_kaggle_v2"
+     }
+    }
+   ],
+   "observation": {
+    "content": "{\"error\": \"Invoking `edit_file()` failed as the following mandatory input parameters are not present:\\nold_string\\nYou could retry calling this tool, but it is IMPORTANT for you to provide all the mandatory parameters.\"}",
+    "extra": {
+     "tool_name": "edit_file",
+     "elapsed_s": 26.7581684589386,
+     "timestamp": 1794288737.2498128,
+     "author": "swe_baseline_agent"
+    }
+   },
+   "metrics": {
+    "prompt_tokens": 3050,
+    "completion_tokens": 100,
+    "cached_tokens": 0,
+    "total_tokens": 3150
+   },
+   "llm_call_count": 1,
+   "extra": {
+    "event_type": "thinking",
+    "elapsed_s": 26.75594735145569,
+    "timestamp": 1794288737.2475917,
+    "author": "swe_baseline_agent"
+   }
+  },
+  {
+   "step_id": 7,
+   "source": "agent",
+   "message": "Wait, I am failing to provide `old_string` because I'm not copying it correctly from the file.\n\nThe file content was:\n```python\ndef total_by_region(lf: pl.LazyFrame) -> pl.DataFrame:\n    \"\"\"Total `amount` per `region`, sorted by region. Uses the streaming engine (large inputs).\"\"\"\n    return (\n        lf.group_by(\"region\")\n        .agg(pl.col(\"amount\").sum().alias(\"total\"))\n        .sort(\"region\")\n        .collect(streaming=True)\n    )\n```\n\nI want to replace:\n```python\n        .sort(\"region\")\n        .collect(streaming=True)\n    )\n```\nwith:\n```python\n        .sort(\"region\")\n        .collect(engine=\"streaming\")\n    )\n```\n\nLet me try again.",
+   "model_name": "/tmp/model_kaggle_v2",
+   "tool_calls": [
+    {
+     "tool_call_id": "call_15",
+     "function_name": "edit_file",
+     "arguments": {
+      "filepath": "reports/summary.py",
+      "new_string": "        .sort(\"region\")\\n        .collect(engine=\"streaming\")\\n    )`,old_string:"
+     },
+     "extra": {
+      "elapsed_s": 37.50619864463806,
+      "timestamp": 1794288747.997843,
+      "author": "swe_baseline_agent",
+      "model_version": "/tmp/model_kaggle_v2"
+     }
+    }
+   ],
+   "observation": {
+    "content": "{\"error\": \"Invoking `edit_file()` failed as the following mandatory input parameters are not present:\\nold_string\\nYou could retry calling this tool, but it is IMPORTANT for you to provide all the mandatory parameters.\"}",
+    "extra": {
+     "tool_name": "edit_file",
+     "elapsed_s": 37.51968598365784,
+     "timestamp": 1794288748.0113304,
+     "author": "swe_baseline_agent"
+    }
+   },
+   "metrics": {
+    "prompt_tokens": 3191,
+    "completion_tokens": 266,
+    "cached_tokens": 0,
+    "total_tokens": 3457
+   },
+   "llm_call_count": 1,
+   "extra": {
+    "event_type": "thinking",
+    "elapsed_s": 37.50619864463806,
+    "timestamp": 1794288747.997843,
+    "author": "swe_baseline_agent"
+   }
+  },
+  {
+   "step_id": 8,
+   "source": "agent",
+   "message": "I keep forgetting to put the `old_string` in the `old_string` parameter. I was putting it in the `new_string` or something. No, I just didn't put it.\n\nLet me be very explicit.",
+   "model_name": "/tmp/model_kaggle_v2",
+   "tool_calls": [
+    {
+     "tool_call_id": "call_18",
+     "function_name": "edit_file",
+     "arguments": {
+      "filepath": "reports/summary.py",
+      "new_string": "        .sort(\"region\")\\n        .collect(engine=\"streaming\")\\n    )`,old_string:"
+     },
+     "extra": {
+      "elapsed_s": 42.0709171295166,
+      "timestamp": 1794288752.5625615,
+      "author": "swe_baseline_agent",
+      "model_version": "/tmp/model_kaggle_v2"
+     }
+    }
+   ],
+   "observation": {
+    "content": "{\"error\": \"Invoking `edit_file()` failed as the following mandatory input parameters are not present:\\nold_string\\nYou could retry calling this tool, but it is IMPORTANT for you to provide all the mandatory parameters.\"}",
+    "extra": {
+     "tool_name": "edit_file",
+     "elapsed_s": 42.073139667510986,
+     "timestamp": 1794288752.564784,
+     "author": "swe_baseline_agent"
+    }
+   },
+   "metrics": {
+    "prompt_tokens": 3498,
+    "completion_tokens": 125,
+    "cached_tokens": 0,
+    "total_tokens": 3623
+   },
+   "llm_call_count": 1,
+   "extra": {
+    "event_type": "thinking",
+    "elapsed_s": 42.0709171295166,
+    "timestamp": 1794288752.5625615,
+    "author": "swe_baseline_agent"
+   }
+  },
+  {
+   "step_id": 9,
+   "source": "agent",
+   "message": "I am having a brain fart. I am not providing `old_string`.\n\n```json\n{\n  \"filepath\": \"reports/summary.py\",\n  \"old_string\": \"        .sort(\\\"region\\\")\\n        .collect(streaming=True)\\n    )\",\n  \"new_string\": \"        .sort(\\\"region\\\")\\n        .collect(engine=\\\"streaming\\\")\\n    )\"\n}\n```\n\nWait, I see what happened. I was just typing `old_string: ` and then nothing.\n\nLet's try again.",
+   "model_name": "/tmp/model_kaggle_v2",
+   "tool_calls": [
+    {
+     "tool_call_id": "call_21",
+     "function_name": "edit_file",
+     "arguments": {
+      "filepath": "reports/summary.py",
+      "new_string": "        .sort(\"region\")\\n        .collect(engine=\"streaming\")\\n    )`,old_string:"
+     },
+     "extra": {
+      "elapsed_s": 49.0432653427124,
+      "timestamp": 1794288759.5349097,
+      "author": "swe_baseline_agent",
+      "model_version": "/tmp/model_kaggle_v2"
+     }
+    }
+   ],
+   "observation": {
+    "content": "{\"error\": \"Invoking `edit_file()` failed as the following mandatory input parameters are not present:\\nold_string\\nYou could retry calling this tool, but it is IMPORTANT for you to provide all the mandatory parameters.\"}",
+    "extra": {
+     "tool_name": "edit_file",
+     "elapsed_s": 49.06589984893799,
+     "timestamp": 1794288759.5575442,
+     "author": "swe_baseline_agent"
+    }
+   },
+   "metrics": {
+    "prompt_tokens": 3664,
+    "completion_tokens": 196,
+    "cached_tokens": 0,
+    "total_tokens": 3860
+   },
+   "llm_call_count": 1,
+   "extra": {
+    "event_type": "thinking",
+    "elapsed_s": 49.0432653427124,
+    "timestamp": 1794288759.5349097,
+    "author": "swe_baseline_agent"
+   }
+  },
+  {
+   "step_id": 10,
+   "source": "agent",
+   "message": "I am literally not typing anything for `old_string`. I don't know why.\n\nLet me try to use `write_file` instead if `edit_file` is being tricky, or just be very careful.\n\nActually, I'll just use `write_file` since the file is so small.",
+   "model_name": "/tmp/model_kaggle_v2",
+   "tool_calls": [
+    {
+     "tool_call_id": "call_24",
+     "function_name": "write_file",
+     "arguments": {
+      "content": "import polars as pl\n\n\ndef total_by_region(lf: pl.LazyFrame) -> pl.DataFrame:\n    \"\"\"Total `amount` per `region`, sorted by region. Uses the streaming engine (large inputs).\"\"\"\n    return (\n        lf.group_by(\"region\")\n        .agg(pl.col(\"amount\").sum().alias(\"total\"))\n        .sort(\"region\")\n        .collect(engine=\"streaming\")\n    )\n",
+      "filepath": "reports/summary.py"
+     },
+     "extra": {
+      "elapsed_s": 56.0368869304657,
+      "timestamp": 1794288766.5285313,
+      "author": "swe_baseline_agent",
+      "model_version": "/tmp/model_kaggle_v2"
+     }
+    }
+   ],
+   "observation": {
+    "content": "{\"status\": \"ok\", \"filepath\": \"reports/summary.py\", \"size\": 338}",
+    "extra": {
+     "tool_name": "write_file",
+     "elapsed_s": 56.048259973526,
+     "timestamp": 1794288766.5399044,
+     "author": "swe_baseline_agent"
+    }
+   },
+   "metrics": {
+    "prompt_tokens": 3902,
+    "completion_tokens": 196,
+    "cached_tokens": 0,
+    "total_tokens": 4098
+   },
+   "llm_call_count": 1,
+   "extra": {
+    "event_type": "thinking",
+    "elapsed_s": 56.0368869304657,
+    "timestamp": 1794288766.5285313,
+    "author": "swe_baseline_agent"
+   }
+  },
+  {
+   "step_id": 11,
+   "source": "agent",
+   "message": "Now let's run the reproduction script again.",
+   "model_name": "/tmp/model_kaggle_v2",
+   "tool_calls": [
+    {
+     "tool_call_id": "call_27",
+     "function_name": "run_command",
+     "arguments": {
+      "command": "python3 /tmp/repro.py"
+     },
+     "extra": {
+      "elapsed_s": 57.48734378814697,
+      "timestamp": 1794288767.9789882,
+      "author": "swe_baseline_agent",
+      "model_version": "/tmp/model_kaggle_v2"
+     }
+    }
+   ],
+   "observation": {
+    "content": "{\"status\": \"ok\", \"stdout\": \"Result:\\n shape: (4, 2)\\n\\u250c\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u252c\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2510\\n\\u2502 region \\u2506 total \\u2502\\n\\u2502 ---    \\u2506 ---   \\u2502\\n\\u2502 str    \\u2506 i64   \\u2502\\n\\u255e\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u256a\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2561\\n\\u2502 East   \\u2506 50    \\u2502\\n\\u2502 North  \\u2506 30    \\u2502\\n\\u2502 South  \\u2506 70    \\u2502\\n\\u2502 West   \\u2506 60    \\u2502\\n\\u2514\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2534\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2518\\n\", \"stderr\": \"\", \"exit_code\": 0}",
+    "extra": {
+     "tool_name": "run_command",
+     "elapsed_s": 57.76321768760681,
+     "timestamp": 1794288768.254862,
+     "author": "swe_baseline_agent"
+    }
+   },
+   "metrics": {
+    "prompt_tokens": 4134,
+    "completion_tokens": 38,
+    "cached_tokens": 0,
+    "total_tokens": 4172
+   },
+   "llm_call_count": 1,
+   "extra": {
+    "event_type": "thinking",
+    "elapsed_s": 57.48734378814697,
+    "timestamp": 1794288767.9789882,
+    "author": "swe_baseline_agent"
+   }
+  },
+  {
+   "step_id": 12,
+   "source": "agent",
+   "message": "The reproduction script now passes.\n\nI should check if there are any other tests I should run.\nThe workspace layout shows:\n```\n./conftest.py\n./pyproject.toml\n./pytest.ini\n./README.md\n./reports\n./reports/__init__.py\n./reports/summary.py\n```\nThere are no `tests/` directory.\n\nI'll double check if there are any other files that might be affected.\nThe problem statement specifically mentioned `reports.summary.total_by_region()`.\n\nI'll do a quick search for `.collect(streaming=True)` in the whole workspace just in case.",
+   "model_name": "/tmp/model_kaggle_v2",
+   "tool_calls": [
+    {
+     "tool_call_id": "call_30",
+     "function_name": "run_command",
+     "arguments": {
+      "command": "grep -r \"streaming=True\" ."
+     },
+     "extra": {
+      "elapsed_s": 63.669862031936646,
+      "timestamp": 1794288774.1615064,
+      "author": "swe_baseline_agent",
+      "model_version": "/tmp/model_kaggle_v2"
+     }
+    }
+   ],
+   "observation": {
+    "content": "{\"status\": \"error\", \"error_type\": \"CommandError\", \"error_message\": \"\", \"details\": {\"stdout\": \"\", \"stderr\": \"\", \"exit_code\": 1}}",
+    "extra": {
+     "tool_name": "run_command",
+     "elapsed_s": 63.68223524093628,
+     "timestamp": 1794288774.1738796,
+     "author": "swe_baseline_agent"
+    }
+   },
+   "metrics": {
+    "prompt_tokens": 4319,
+    "completion_tokens": 166,
+    "cached_tokens": 0,
+    "total_tokens": 4485
+   },
+   "llm_call_count": 1,
+   "extra": {
+    "event_type": "thinking",
+    "elapsed_s": 63.669862031936646,
+    "timestamp": 1794288774.1615064,
+    "author": "swe_baseline_agent"
+   }
+  },
+  {
+   "step_id": 13,
+   "source": "agent",
+   "message": "`grep` returned 1, which means it didn't find any other occurrences of `streaming=True`.\n\nI'm confident in the fix.",
+   "model_name": "/tmp/model_kaggle_v2",
+   "tool_calls": [
+    {
+     "tool_call_id": "call_33",
+     "function_name": "submit_patch",
+     "arguments": {},
+     "extra": {
+      "elapsed_s": 65.36159372329712,
+      "timestamp": 1794288775.853238,
+      "author": "swe_baseline_agent",
+      "model_version": "/tmp/model_kaggle_v2"
+     }
+    }
+   ],
+   "observation": {
+    "content": "{\"status\": \"ok\", \"patch_size\": 392, \"files_changed\": 1}",
+    "extra": {
+     "tool_name": "submit_patch",
+     "elapsed_s": 65.38631391525269,
+     "timestamp": 1794288775.8779583,
+     "author": "swe_baseline_agent"
+    }
+   },
+   "metrics": {
+    "prompt_tokens": 4537,
+    "completion_tokens": 46,
+    "cached_tokens": 0,
+    "total_tokens": 4583
+   },
+   "llm_call_count": 1,
+   "extra": {
+    "event_type": "thinking",
+    "elapsed_s": 65.36159372329712,
+    "timestamp": 1794288775.853238,
+    "author": "swe_baseline_agent"
+   }
+  },
+  {
+   "step_id": 14,
+   "source": "agent",
+   "message": "I have successfully fixed the issue by updating the `collect` method call to use `engine=\"streaming\"` instead of the deprecated `streaming=True` argument.",
+   "model_name": "/tmp/model_kaggle_v2",
+   "metrics": {
+    "prompt_tokens": 4619,
+    "completion_tokens": 132,
+    "cached_tokens": 0,
+    "total_tokens": 4751
+   },
+   "llm_call_count": 1,
+   "extra": {
+    "event_type": "thinking",
+    "elapsed_s": 70.00731658935547,
+    "timestamp": 1794288780.498961,
+    "author": "swe_baseline_agent"
+   }
+  },
+  {
+   "step_id": 15,
+   "source": "agent",
+   "message": "The issue was caused by the removal of the `streaming` argument in `LazyFrame.collect()` in Polars 2.0. The correct way to enable the streaming engine is now by using the `engine=\"streaming\"` argument. I updated `reports/summary.py` to reflect this change.\n\nSummary of changes:\n- Modified `reports/summary.py`: Changed `.collect(streaming=True)` to `.collect(engine=\"streaming\")`.",
+   "model_name": "/tmp/model_kaggle_v2",
+   "llm_call_count": 1,
+   "extra": {
+    "event_type": "final",
+    "elapsed_s": 70.00731658935547,
+    "timestamp": 1794288780.498961,
+    "author": "swe_baseline_agent"
+   }
+  }
+ ],
+ "final_metrics": {
+  "total_prompt_tokens": 42426,
+  "total_completion_tokens": 1822,
+  "total_cached_tokens": 0,
+  "total_tokens": 44248,
+  "total_steps": 15
+ }
+}
