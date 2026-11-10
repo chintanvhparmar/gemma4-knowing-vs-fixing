@@ -312,7 +312,7 @@ model-agnostic and applies to any library, language or agent.
 ## 8. Reproducibility, Ethics and Disclosure
 - **Pre-registration:** manifest of 85 files, overall SHA-256
   `993e0afe22a5738bb9605a68652ad52c8b6002115c71601504ae2ad124c35231`, posted before the main runs [8].
-- **Code, tasks, traces, analysis:** GITHUB_URL (no competition data; rule 2.4.b).
+- **Code, tasks, traces, analysis:** https://github.com/chintanvhparmar/gemma4-knowing-vs-fixing (no competition data; rule 2.4.b).
 - **Compute:** about $34 of cloud GPU time (330 main + 8 exploratory runs, pilots, probes); 8 web
   searches in total across these runs. For §4.7, `modal_replica/replica.py` gained two optional settings after the freeze
   (defaults reproduce the main runs; diff in git history).
