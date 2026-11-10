@@ -1,0 +1,44 @@
+﻿diff --git a/modal_replica/replica.py b/modal_replica/replica.py
+index c585604..e4e38a4 100644
+--- a/modal_replica/replica.py
++++ b/modal_replica/replica.py
+@@ -505,7 +505,11 @@ code_image = code_image.add_local_file(ROOT / "configs" / "main_tasks.json", f"{
+ @app.function(image=code_image, gpu=AGENT_GPU, cpu=6, memory=49152, timeout=24 * 3600,
+               volumes={DATA: data_vol, MODELS: weights_vol}, secrets=[tavily_secret])
+ def _condition_runs(cond: str, run_name: str, repeats: int = 2, concurrency: int = 3,
+-                    search_budget: int = 1440, max_hours: float = 20.0) -> dict:
++                    search_budget: int = 1440, max_hours: float = 20.0, batches: str = "",
++                    drop_offline: bool = False) -> dict:
++    """batches: comma list of batch names to run (default all). drop_offline (EXPLORATORY, not
++    pre-registered, added 10 Nov after the main runs): rewrite the one harness task-message line
++    "Environment is offline (no network/PyPI access). ..." to keep only the no-install rule."""
+     import json
+     import os
+     import shutil
+@@ -523,8 +527,26 @@ def _condition_runs(cond: str, run_name: str, repeats: int = 2, concurrency: int
+     from swegemma.models import load_tasks
+ 
+     plan = json.loads(Path(f"{CODE}/configs/main_tasks.json").read_text())
++    if batches:
++        keep = {x.strip() for x in batches.split(",")}
++        plan["batches"] = [b for b in plan["batches"] if b["name"] in keep]
++        assert {b["name"] for b in plan["batches"]} == keep, f"unknown batch in {keep}"
+     root = Path(RUNS) / run_name / cond
+     root.mkdir(parents=True, exist_ok=True)
++    if drop_offline:
++        from swegemma.harness import agent_runner
++        old_line = ("- Environment is offline (no network/PyPI access). All repository and test dependencies "
++                    "are ALREADY pre-installed. Do NOT attempt to run pip install or download packages.")
++        new_line = ("- All repository and test dependencies are ALREADY pre-installed. "
++                    "Do NOT attempt to run pip install or download packages.")
++        _orig = agent_runner.build_agent_prompt
++
++        def _patched(*a, **k):
++            p = _orig(*a, **k)
++            assert old_line in p, "offline line not found in task prompt"
++            return p.replace(old_line, new_line)
++        agent_runner.build_agent_prompt = _patched
++    (root / "variant.json").write_text(json.dumps(dict(batches=batches, drop_offline=drop_offline)))
+     work = Path("/tmp/work")
+     work.mkdir(parents=True, exist_ok=True)
+     relay = None

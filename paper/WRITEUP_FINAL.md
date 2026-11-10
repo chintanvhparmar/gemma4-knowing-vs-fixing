@@ -315,7 +315,7 @@ model-agnostic and applies to any library, language or agent.
 - **Code, tasks, traces, analysis:** https://github.com/chintanvhparmar/gemma4-knowing-vs-fixing (no competition data; rule 2.4.b).
 - **Compute:** about $34 of cloud GPU time (330 main + 8 exploratory runs, pilots, probes); 8 web
   searches in total across these runs. For §4.7, `modal_replica/replica.py` gained two optional settings after the freeze
-  (defaults reproduce the main runs; diff in git history).
+  (defaults reproduce the main runs; diff in modal_replica/replica_postfreeze.diff).
 - **AI assistance:** Claude (Anthropic) assisted with code, data analysis and drafting. The author
   designed the study, made all decisions, verified the results and is responsible for the text.
 

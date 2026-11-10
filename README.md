@@ -18,7 +18,7 @@ The agent made a look-up in 5 of 264 tool-enabled runs.
 the harness's "Environment is offline" task-message line removed (8 runs): 3/8 resolved and searches in
 2/8 runs, both on scikit-learn. Launched with `modal_replica/spawn_expl.py`. To support it,
 `modal_replica/replica.py` gained two optional settings after the freeze (`batches`, `drop_offline`).
-Their defaults reproduce the main runs, so that file's hash differs from the manifest (see git history).
+Their defaults reproduce the main runs, so that file's hash differs from the manifest (diff: `modal_replica/replica_postfreeze.diff`).
 
 ## Layout
 | Path | What |
