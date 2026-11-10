@@ -2,7 +2,7 @@
 
 Code, tasks, traces and analysis for the Kaggle *Gemma 4 Developer Agent Paper Track* entry:
 **does a Gemma 4 coding agent notice when its library knowledge is out of date, and do web search or
-offline docs help?** The paper is `paper/WRITEUP_FINAL.md`.
+offline docs help?** The paper, as submitted, is `paper/WRITEUP_SUBMITTED.md` (Kaggle: https://www.kaggle.com/competitions/gemma-4-developer-agent-paper/writeups/fixing-is-easy-knowing-isnt).
 
 ## Headline results (330 runs, Gemma 4 31B IT QAT, official harness)
 | Task group | C0 none | C1 web | C2 web+hint | C3 docs | C4 both |
