@@ -56,5 +56,10 @@ Competition data is not redistributed (competition rule 2.4.b):
   Every other pre-registered file, except `modal_replica/replica.py` (see above), matches the
   manifest byte for byte.
 
+## Licence
+Apache License 2.0 (`LICENSE`), the licence type named in the competition rules. Third-party code
+that appears in traces (e.g. excerpts of pandas, click or scikit-learn source) remains under its own
+licence.
+
 ## Disclosure
 Claude (Anthropic) assisted with code, analysis and drafting. All tasks and issue texts are synthetic.
